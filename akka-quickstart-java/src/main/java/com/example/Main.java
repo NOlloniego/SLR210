@@ -42,7 +42,7 @@ public class Main {
         	references.get(i).tell(new OfconsProposerMsg(((int)(Math.random() * 1000) )), ActorRef.noSender());
         }
         
-       Thread.sleep(1500);  
+       Thread.sleep(50);  
     
         references2.removeAll(faulty);
         
@@ -54,9 +54,9 @@ public class Main {
         
         //Send Hold messages to all processes who are not the leader.
         Hold holdMsg = new Hold();
-        for(int i = 0; i<N; i++) {
+        for(int i = 0; i<references2.size(); i++) {
         	if(i != indexLeader) {
-        		references.get(i).tell(holdMsg, ActorRef.noSender());
+        		references2.get(i).tell(holdMsg, ActorRef.noSender());
         	}
         }
     }

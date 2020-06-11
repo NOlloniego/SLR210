@@ -128,16 +128,22 @@ public class Process extends UntypedAbstractActor {
         	  log.info("p" + self().path().name() + " received READ " + rd.ballot);
           }
           else if(message instanceof AbortMsg) {
-        	  log.info("p" + self().path().name() + " received ABORT ");
-        	  context().system().scheduler().scheduleOnce(Duration.create(10,TimeUnit.MILLISECONDS),
-                      getSelf(), new OfconsProposerMsg(this.proposal), context().system().dispatcher(), getSelf());
+        	  AbortMsg msg = (AbortMsg) message;
+        	  if(msg.getBallot()==this.ballot) {
+	        	  this.flagACK = true;
+	        	  this.flagGather = true;
+	        	  log.info("p" + self().path().name() + " received ABORT ");
+	        	  context().system().scheduler().scheduleOnce(Duration.create(10,TimeUnit.MILLISECONDS),
+	                      getSelf(), new OfconsProposerMsg(this.proposal), context().system().dispatcher(), getSelf());
+        	  }
           }
           else if(message instanceof GatherMsg) {
         	  GatherMsg msg = (GatherMsg) message;
-        	  this.states.get(msg.getID()-1).setImposeBallot(msg.getImposeBallot()); 
-        	  this.states.get(msg.getID()-1).setEstimate(msg.getEstimate());
-        	  if(this.ballot==msg.getBallot())
-        		  counter++;
+        	  if(this.ballot==msg.getBallot()) {
+	        	  this.states.get(msg.getID()-1).setImposeBallot(msg.getImposeBallot()); 
+	        	  this.states.get(msg.getID()-1).setEstimate(msg.getEstimate());
+	        	  counter++;
+        	  }
         	  if((counter > N/2)&&(!this.flagGather)) {
         		  majority();
         		  flagGather = true;
@@ -181,6 +187,7 @@ public class Process extends UntypedAbstractActor {
           }
           else if (message instanceof Hold) {
         	  this.leader = false;
+        	  log.info("p" + self().path().name() + " is holding");
           }
           else if (message instanceof Leader) {
         	  this.leader = true;
