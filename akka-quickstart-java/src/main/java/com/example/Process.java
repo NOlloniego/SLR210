@@ -5,7 +5,10 @@ import akka.actor.Props;
 import akka.actor.UntypedAbstractActor;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+ 
+import scala.concurrent.duration.Duration;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 public class Process extends UntypedAbstractActor {
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);// Logger attached to actor
@@ -63,7 +66,6 @@ public class Process extends UntypedAbstractActor {
     		return;
     	this.flagGather = false;
     	this.flagACK = false;
-    	//log.info("p" + self().path().name() + " proposes " + v);
     	this.proposal= v;
     	this.counter = 0;
     	this.counterACK = 0;
@@ -75,6 +77,7 @@ public class Process extends UntypedAbstractActor {
     	for(ActorRef actors : this.processes.references) {
     		actors.tell(new ReadMsg(this.ballot), getSelf());
     	}
+    	log.info("p" + self().path().name() + " proposed " + this.proposal);
     }
     
     public void majority() {
@@ -98,7 +101,7 @@ public class Process extends UntypedAbstractActor {
     	
     	if(this.faultProneMode) {
     		if(Math.random()<this.deadProb) {
-    			//log.info("p" + self().path().name() + " died");
+    			log.info("p" + self().path().name() + " went to silent mode");
     			getContext().stop(getSelf());
            	}
     	}
@@ -112,7 +115,7 @@ public class Process extends UntypedAbstractActor {
           else if (message instanceof OfconsProposerMsg) {
         	  OfconsProposerMsg msg = (OfconsProposerMsg) message;
         	  propose(msg.getValue());
-        	  //log.info("p" + self().path().name() + " received OfconsProposerMsg");
+        	  log.info("p" + self().path().name() + " received OfconsProposerMsg and will propose value " + msg.getValue());
           }
           else if(message instanceof ReadMsg) {
         	  ReadMsg rd = (ReadMsg) message;
@@ -122,22 +125,23 @@ public class Process extends UntypedAbstractActor {
         		  this.readBallot = rd.getBallot();
         		  getSender().tell(new GatherMsg(rd.ballot, this.imposeBallot, this.estimate, this.id), getSelf());
         	  }
-        	 // log.info("p" + self().path().name() + " received READ " + rd.ballot);
+        	  log.info("p" + self().path().name() + " received READ " + rd.ballot);
           }
           else if(message instanceof AbortMsg) {
-        	  //log.info("p" + self().path().name() + " received ABORT ");
-        	  this.propose(this.proposal);
+        	  log.info("p" + self().path().name() + " received ABORT ");
+        	  context().system().scheduler().scheduleOnce(Duration.create(10,TimeUnit.MILLISECONDS),
+                      getSelf(), new OfconsProposerMsg(this.proposal), context().system().dispatcher(), getSelf());
           }
           else if(message instanceof GatherMsg) {
         	  GatherMsg msg = (GatherMsg) message;
         	  this.states.get(msg.getID()-1).setImposeBallot(msg.getImposeBallot()); 
         	  this.states.get(msg.getID()-1).setEstimate(msg.getEstimate());
-        	  if(msg.getBallot()==this.ballot)
+        	  if(this.ballot==msg.getBallot())
         		  counter++;
         	  if((counter > N/2)&&(!this.flagGather)) {
         		  majority();
         		  flagGather = true;
-        		// log.info("p" + self().path().name() + " received a majority of GATHERS ");
+        		 log.info("p" + self().path().name() + " received a majority of GATHERS ");
         	  }
           }
           else if(message instanceof ImposeMsg) {
@@ -149,18 +153,18 @@ public class Process extends UntypedAbstractActor {
         		  this.imposeBallot = msg.getBallot();
         		  getSender().tell(new ACKMsg(msg.getBallot()), getSelf());
         	  }
-        	// log.info("p" + self().path().name() + " received IMPOSE value " + msg.getV() + " and ballot " + msg.getBallot());
+        	 log.info("p" + self().path().name() + " received IMPOSE value " + msg.getV() + " and ballot " + msg.getBallot());
           }
           else if(message instanceof ACKMsg) {
         	  ACKMsg msg = (ACKMsg) message;
-        	  if(msg.getBallot()==this.ballot)
+        	  if(this.ballot == msg.getBallot())
         		  counterACK++;
         	  if((counterACK > N/2)&&(!this.flagACK)) {
         		  this.flagACK = true;
         		  for (ActorRef actor : processes.references) {
             		  actor.tell(new Decide(this.proposal, this.ballot), getSelf());
             	  }
-        		// log.info("p" + self().path().name() + " received a majority of ACK messages");
+        		 log.info("p" + self().path().name() + " received a majority of ACK messages");
            	  }  
           }
           else if (message instanceof Decide) {

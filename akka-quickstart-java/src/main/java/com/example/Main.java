@@ -5,7 +5,7 @@ import java.util.*;
 
 public class Main {
 
-    public static int N = 10;
+    public static int N = 100;
 
 
     public static void main(String[] args) throws InterruptedException {
@@ -42,7 +42,7 @@ public class Main {
         	references.get(i).tell(new OfconsProposerMsg(((int)(Math.random() * 1000) )), ActorRef.noSender());
         }
         
-        Thread.sleep(500);  
+       Thread.sleep(1500);  
     
         references2.removeAll(faulty);
         
@@ -59,6 +59,5 @@ public class Main {
         		references.get(i).tell(holdMsg, ActorRef.noSender());
         	}
         }
-        
     }
 }
